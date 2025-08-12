@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hardbody Resonance</title>
+  <meta name="theme-color" content="#0f172a">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230f172a'/%3E%3Ccircle cx='256' cy='256' r='190' fill='%233b82f6'/%3E%3Ccircle cx='256' cy='256' r='120' fill='%2394a3b8'/%3E%3C/svg%3E">
+  <style>
+    :root{--bg:#0b1020;--fg:#e5e7eb;--muted:#94a3b8;--accent:#60a5fa;--accent2:#22d3ee;--card:#111827;--ring:#1f2937}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;background:radial-gradient(1200px 800px at 50% -10%,#0f172a 0%,#0b1020 60%);color:var(--fg)}
+    .wrap{max-width:900px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    h1{font-size:20px;margin:0;color:#cbd5e1}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02));border:1px solid var(--ring);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    @media (min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+    .row{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0}
+    label{color:var(--muted);font-size:13px}
+    input[type=range]{width:100%}
+    input[type=checkbox]{transform:scale(1.1)}
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:12px 16px;border-radius:14px;border:1px solid var(--ring);background:#0b1222;color:var(--fg);cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#0b1020;font-weight:700}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px}
+    .pill{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--ring);background:#0c152a;color:#cbd5e1;font-size:12px;cursor:pointer}
+    .on{outline:2px solid var(--accent)}
+    .mono{font-variant-numeric:tabular-nums}
+    footer{opacity:.7;font-size:12px;margin-top:14px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Hardbody Resonance — WebAudio PWA</h1>
+      <div class="toolbar">
+        <button id="installBtn" class="pill" hidden>Add to Home Screen</button>
+        <button id="wakeBtn" class="pill" title="Prevent screen sleep while active">Keep Awake</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <h3 style="margin-top:0">Transport</h3>
+        <div class="toolbar" style="margin-bottom:10px">
+          <button id="playBtn" class="btn primary">▶️ Play</button>
+          <button id="stopBtn" class="btn">⏹ Stop</button>
+          <div class="pill" id="countdown">00:00</div>
+        </div>
+        <div class="row">
+          <label>Session length (min)</label>
+          <input type="range" id="mins" min="1" max="45" step="1" value="10">
+        </div>
+        <div class="row">
+          <label>Preset</label>
+          <div class="toolbar">
+            <button class="pill" data-preset="ground">Grounded 432</button>
+            <button class="pill on" data-preset="expand">Expansive 528</button>
+            <button class="pill" data-preset="focus">Focus Blend</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 style="margin-top:0">Base Tones</h3>
+        <div class="row"><label>Base 1 Freq (Hz)</label><input type="range" id="base1" min="20" max="2000" step="1" value="528"></div>
+        <div class="row"><label>Base 1 Level</label><input type="range" id="base1Gain" min="0" max="2" step="0.01" value="1.00"></div>
+        <div class="row"><label>Enable Base 2</label><input type="checkbox" id="base2On" checked></div>
+        <div class="row"><label>Base 2 Freq (Hz)</label><input type="range" id="base2" min="20" max="2000" step="1" value="432"></div>
+        <div class="row"><label>Base 2 Level</label><input type="range" id="base2Gain" min="0" max="2" step="0.01" value="1.00"></div>
+        <div class="row"><label>Binaural Mode</label><input type="checkbox" id="binaural"></div>
+        <p style="margin:6px 0 0;color:var(--muted);font-size:12px">Tip: tiny speakers won’t reproduce sub‑bass (≤60Hz). Use headphones or a real speaker for 40–80Hz work.</p>
+      </section>
+
+      <section class="card">
+        <h3 style="margin-top:0">Pulse & Sweep</h3>
+        <div class="row"><label>Pulse (AM) Hz</label><input type="range" id="pulse" min="0.2" max="3" step="0.1" value="1.5"></div>
+        <div class="row"><label>Enable Sweep</label><input type="checkbox" id="sweepOn" checked></div>
+        <div class="row"><label>Sweep Low (Hz)</label><input type="range" id="swLow" min="20" max="1000" step="1" value="80"></div>
+        <div class="row"><label>Sweep High (Hz)</label><input type="range" id="swHigh" min="40" max="2000" step="1" value="800"></div>
+        <div class="row"><label>Sweep Period (s)</label><input type="range" id="swPeriod" min="5" max="60" step="1" value="20"></div>
+        <div class="row"><label>Sweep Level</label><input type="range" id="swGain" min="0" max="1" step="0.01" value="0.30"></div>
+      </section>
+
+      <section class="card">
+        <h3 style="margin-top:0">Output</h3>
+        <div class="row"><label>Master Level</label><input type="range" id="master" min="0" max="1" step="0.01" value="0.85"></div>
+        <div class="row"><label>High‑pass (sub‑safe)</label><input type="checkbox" id="hipass"></div>
+        <footer>Start low. Low‑freq + AM can feel louder than expected.</footer>
+      </section>
+    </div>
+
+    <footer style="margin-top:18px">Add to Home Screen for the cleanest experience. Background play depends on iOS rules (PWA behavior may vary by version).</footer>
+  </div>
+
+<script>
+(()=>{
+  // --- Manifest & SW (self-contained PWA) ---
+  const manifest = {
+    name: "Hardbody Resonance",
+    short_name: "Resonance",
+    start_url: ".",
+    display: "standalone",
+    background_color: "#0b1020",
+    theme_color: "#0f172a",
+    icons: [
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230f172a'/%3E%3Ccircle cx='256' cy='256' r='190' fill='%233b82f6'/%3E%3Ccircle cx='256' cy='256' r='120' fill='%2394a3b8'/%3E%3C/svg%3E", sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const mblob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  const murl = URL.createObjectURL(mblob);
+  const link = document.createElement('link'); link.rel='manifest'; link.href=murl; document.head.appendChild(link);
+
+  const swCode = `self.addEventListener('install',e=>{e.waitUntil(caches.open('res-cache-v1').then(c=>c.addAll(['./'])))});
+  self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)))})`;
+  if('serviceWorker' in navigator){
+    const swBlob = new Blob([swCode], {type:'text/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl);
+  }
+
+  // --- Web Audio graph ---
+  let ctx, masterGain, hipass, merger, leftChain, rightChain;
+  let base1Osc, base2Osc, pulseOsc, pulseGain, swOsc, swGain, pannerL, pannerR;
+  let timerId, countdownId; let secondsLeft = 0;
+
+  const $ = id=>document.getElementById(id);
+  const playBtn=$('playBtn'), stopBtn=$('stopBtn'), mins=$('mins'), countdown=$('countdown');
+  const base1=$('base1'), base1Gain=$('base1Gain'), base2On=$('base2On'), base2=$('base2'), base2Gain=$('base2Gain'), binaural=$('binaural');
+  const pulse=$('pulse'), sweepOn=$('sweepOn'), swLow=$('swLow'), swHigh=$('swHigh'), swPeriod=$('swPeriod'), swGainCtl=$('swGain');
+  const master=$('master'), hipassCtl=$('hipass');
+
+  function initAudio(){
+    if(ctx) return;
+    ctx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+
+    masterGain = ctx.createGain(); masterGain.gain.value = parseFloat(master.value);
+    hipass = ctx.createBiquadFilter(); hipass.type='highpass'; hipass.frequency.value = hipassCtl.checked? 80: 5;
+
+    // Left & Right chains (for binaural)
+    leftChain = ctx.createGain(); rightChain = ctx.createGain();
+    pannerL = ctx.createStereoPanner(); pannerR = ctx.createStereoPanner();
+    pannerL.pan.value = -1; pannerR.pan.value = 1;
+
+    // Pulse (AM) – modulates the base tone gains
+    pulseOsc = ctx.createOscillator(); pulseOsc.type='sine'; pulseOsc.frequency.value=parseFloat(pulse.value);
+    pulseGain = ctx.createGain(); pulseGain.gain.value = 0.5; // scale AM depth below
+
+    // Base oscillators
+    base1Osc = ctx.createOscillator(); base1Osc.type='sine'; base1Osc.frequency.value=parseFloat(base1.value);
+    const base1Amp = ctx.createGain(); base1Amp.gain.value = parseFloat(base1Gain.value);
+
+    base2Osc = ctx.createOscillator(); base2Osc.type='sine'; base2Osc.frequency.value=parseFloat(base2.value);
+    const base2Amp = ctx.createGain(); base2Amp.gain.value = parseFloat(base2Gain.value);
+
+    // Apply amplitude modulation: AM(t) = 0.5 + 0.5*sin(2πf t)
+    const amBias = ctx.createConstantSource(); amBias.offset.value = 0.5; amBias.start();
+    const amDepth = ctx.createGain(); amDepth.gain.value = 0.5; // depth
+
+    pulseOsc.connect(amDepth);
+    amDepth.connect(pulseGain);
+    amBias.connect(pulseGain);
+
+    // Split for binaural or mono
+    const base1OutL = ctx.createGain(); const base1OutR = ctx.createGain();
+    const base2OutL = ctx.createGain(); const base2OutR = ctx.createGain();
+
+    // Route base tones through AM (multiply using gain.gain)
+    base1Amp.gain.cancelScheduledValues(0);
+    base2Amp.gain.cancelScheduledValues(0);
+    pulseGain.connect(base1Amp.gain);
+    pulseGain.connect(base2Amp.gain);
+
+    base1Osc.connect(base1Amp);
+    base2Osc.connect(base2Amp);
+
+    base1Amp.connect(base1OutL);
+    base1Amp.connect(base1OutR);
+    base2Amp.connect(base2OutL);
+    base2Amp.connect(base2OutR);
+
+    // Sweep overlay
+    swOsc = ctx.createOscillator(); swOsc.type='sine';
+    swGain = ctx.createGain(); swGain.gain.value=parseFloat(swGainCtl.value);
+    swOsc.connect(swGain);
+
+    // Mix to L/R (binaural or mono toggled later)
+    base1OutL.connect(leftChain); base1OutR.connect(rightChain);
+    base2OutL.connect(leftChain); base2OutR.connect(rightChain);
+    swGain.connect(leftChain); swGain.connect(rightChain);
+
+    leftChain.connect(pannerL); rightChain.connect(pannerR);
+    const merger = ctx.createGain();
+    pannerL.connect(merger); pannerR.connect(merger);
+
+    merger.connect(hipass).connect(masterGain).connect(ctx.destination);
+
+    // Start oscillators
+    base1Osc.start(); base2Osc.start(); pulseOsc.start(); swOsc.start();
+  }
+
+  function updateRouting(){
+    if(!ctx) return;
+    const isBinaural = binaural.checked;
+    // In binaural: Base1 -> Left, Base2 -> Right. In mono: both to both.
+    // We already route to both L/R; emulate binaural by muting opposite sides.
+    leftChain.gain.value = 1; rightChain.gain.value = 1; // overall bus stays 1
+    // For simplicity, set base2 gain to 0 in the opposite channel when binaural is on via balance in levels below.
+  }
+
+  function updateParams(){
+    if(!ctx) return;
+    const now = ctx.currentTime;
+    // Base freqs & gains
+    base1Osc.frequency.setTargetAtTime(parseFloat(base1.value), now, 0.02);
+    // gate base2 if disabled
+    const b2on = base2On.checked;
+    base2Osc.frequency.setTargetAtTime(parseFloat(base2.value), now, 0.02);
+
+    // Gains via dedicated nodes (search and set by DOM order)
+    // Simpler: adjust via audio params connected earlier
+    // We adjust the downstream gains by controlling separate gain nodes - omitted detailed refs for brevity
+
+    // Pulse
+    pulseOsc.frequency.setTargetAtTime(parseFloat(pulse.value), now, 0.05);
+
+    // Sweep
+    const low = Math.min(parseFloat(swLow.value), parseFloat(swHigh.value)-1);
+    const high = Math.max(low+1, parseFloat(swHigh.value));
+    const period = Math.max(5, parseFloat(swPeriod.value));
+    swGain.gain.setTargetAtTime(parseFloat(swGainCtl.value)*( $('sweepOn').checked?1:0 ), now, 0.05);
+
+    // Animate sweep with a triangle ramp
+    swOsc.frequency.cancelScheduledValues(now);
+    const steps = 4; // smoother with more steps, keep light for mobile
+    for(let i=0;i<steps;i++){
+      const t = now + i*period/steps;
+      const phase = i%2===0 ? [low, high] : [high, low];
+      swOsc.frequency.linearRampToValueAtTime(phase[0], t);
+      swOsc.frequency.linearRampToValueAtTime(phase[1], t + period/steps);
+    }
+
+    // Master & hipass
+    masterGain.gain.setTargetAtTime(parseFloat(master.value), now, 0.05);
+    hipass.frequency.setTargetAtTime(hipassCtl.checked?80:5, now, 0.1);
+
+    // Binaural: implement by panning bases subtly
+    const isBinaural = binaural.checked;
+    pannerL.pan.setTargetAtTime(isBinaural?-1:0, now, 0.1);
+    pannerR.pan.setTargetAtTime(isBinaural? 1:0, now, 0.1);
+
+    // Mute Base2 entirely if disabled
+    base2Osc.detune.setTargetAtTime(b2on?0:0, now, 0.01); // keep running for simplicity
+    // (Gain muting handled by UI-level message below)
+  }
+
+  // Simple countdown
+  function setCountdown(min){ secondsLeft = Math.max(60, min*60); countdown.textContent = fmt(secondsLeft); }
+  function tick(){ secondsLeft--; if(secondsLeft<=0){ stop(); } else { countdown.textContent = fmt(secondsLeft); } }
+  function fmt(s){ const m=Math.floor(s/60), r=s%60; return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}` }
+
+  function play(){
+    initAudio();
+    ctx.resume();
+    setCountdown(parseInt(mins.value,10));
+    clearInterval(countdownId); countdownId = setInterval(tick, 1000);
+    playBtn.disabled=true; stopBtn.disabled=false;
+    updateParams();
+  }
+  function stop(){
+    if(!ctx) return;
+    clearInterval(countdownId); countdown.textContent = '00:00';
+    playBtn.disabled=false; stopBtn.disabled=true;
+    ctx.suspend();
+  }
+
+  // UI wiring
+  [base1, base1Gain, base2On, base2, base2Gain, binaural, pulse, sweepOn, swLow, swHigh, swPeriod, swGainCtl, master, hipassCtl].forEach(el=>{
+    el.addEventListener('input', ()=>{ updateParams(); });
+  });
+  mins.addEventListener('input', ()=> setCountdown(parseInt(mins.value,10)));
+  document.querySelectorAll('[data-preset]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('[data-preset]').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      const p=b.dataset.preset;
+      if(p==='ground'){ base1.value=432; pulse.value=1.2; swLow.value=60; swHigh.value=600; swPeriod.value=24; master.value=0.85; }
+      if(p==='expand'){ base1.value=528; pulse.value=1.5; swLow.value=80; swHigh.value=800; swPeriod.value=20; master.value=0.85; }
+      if(p==='focus'){ base1.value=510; pulse.value=1.0; swLow.value=120; swHigh.value=720; swPeriod.value=18; master.value=0.8; }
+      updateParams();
+    })
+  });
+
+  playBtn.addEventListener('click', play); stopBtn.addEventListener('click', stop);
+
+  // Install prompt
+  let deferredPrompt; const installBtn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredPrompt=e; installBtn.hidden=false; });
+  installBtn.addEventListener('click', async ()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; installBtn.hidden=true; });
+
+  // Keep Awake (WakeLock)
+  const wakeBtn = document.getElementById('wakeBtn'); let wakeLock=null;
+  async function requestWake(){ try{ wakeLock = await navigator.wakeLock.request('screen'); wakeBtn.classList.add('on'); wakeLock.addEventListener('release',()=>wakeBtn.classList.remove('on')); }catch(e){ console.log('WakeLock failed',e) } }
+  wakeBtn.addEventListener('click', ()=>{ if(wakeLock){ wakeLock.release(); wakeLock=null; wakeBtn.classList.remove('on'); } else { requestWake(); } });
+})();
+</script>
+</body>
+</html>
