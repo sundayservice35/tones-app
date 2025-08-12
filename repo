@@ -1,0 +1,3 @@
+git add index.html .nojekyll
+git commit -m "Add Hardbody Resonance PWA"
+git push
