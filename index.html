@@ -62,17 +62,31 @@
           </div>
         </div>
       </section>
+      
+<div class="control">
+  <label for="freqA">Base A (Hz)</label>
+  <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+    <!-- log-scale slider 0..100 maps to 20..2000 Hz -->
+    <input id="freqA" type="range" min="0" max="100" step="1" value="35" list="hzTicks" style="flex:1">
+    <button type="button" data-dec="freqA">−</button>
+    <input id="freqA_num" type="number" min="20" max="2000" step="1" style="width:90px">
+    <button type="button" data-inc="freqA">+</button>
+    <span id="freqA_readout" style="min-width:70px; text-align:right; font-variant-numeric:tabular-nums"></span>
+  </div>
+</div>
 
-      <section class="card">
-        <h3 style="margin-top:0">Base Tones</h3>
-        <div class="row"><label>Base 1 Freq (Hz)</label><input type="range" id="base1" min="20" max="2000" step="1" value="528"></div>
-        <div class="row"><label>Base 1 Level</label><input type="range" id="base1Gain" min="0" max="2" step="0.01" value="1.00"></div>
-        <div class="row"><label>Enable Base 2</label><input type="checkbox" id="base2On" checked></div>
-        <div class="row"><label>Base 2 Freq (Hz)</label><input type="range" id="base2" min="20" max="2000" step="1" value="432"></div>
-        <div class="row"><label>Base 2 Level</label><input type="range" id="base2Gain" min="0" max="2" step="0.01" value="1.00"></div>
-        <div class="row"><label>Binaural Mode</label><input type="checkbox" id="binaural"></div>
-        <p style="margin:6px 0 0;color:var(--muted);font-size:12px">Tip: tiny speakers won’t reproduce sub‑bass (≤60Hz). Use headphones or a real speaker for 40–80Hz work.</p>
-      </section>
+<!-- ticks for visual reference -->
+<datalist id="hzTicks">
+  <option value="0"  label="20"></option>
+  <option value="14" label="40"></option>
+  <option value="27" label="80"></option>
+  <option value="41" label="160"></option>
+  <option value="55" label="320"></option>
+  <option value="69" label="640"></option>
+  <option value="83" label="1280"></option>
+  <option value="100" label="2000"></option>
+</datalist>
+
 
       <section class="card">
         <h3 style="margin-top:0">Pulse & Sweep</h3>
@@ -154,6 +168,17 @@
 
     base2Osc = ctx.createOscillator(); base2Osc.type='sine'; base2Osc.frequency.value=parseFloat(base2.value);
     const base2Amp = ctx.createGain(); base2Amp.gain.value = parseFloat(base2Gain.value);
+window.oscA = oscA; // expose to global so sliders can access
+window.oscB = oscB; // only if you have a second tone
+
+window.setBaseFreq = (which, hz)=>{
+  if (which === 'A' && window.oscA) {
+    window.oscA.frequency.setValueAtTime(hz, audioCtx.currentTime);
+  }
+  if (which === 'B' && window.oscB) {
+    window.oscB.frequency.setValueAtTime(hz, audioCtx.currentTime);
+  }
+};
 
     // Apply amplitude modulation: AM(t) = 0.5 + 0.5*sin(2πf t)
     const amBias = ctx.createConstantSource(); amBias.offset.value = 0.5; amBias.start();
@@ -308,3 +333,66 @@
 </script>
 </body>
 </html>
+<script>
+/* ---- log scale helpers: 20..2000 Hz mapped to slider 0..100 ---- */
+const HZ_MIN = 20, HZ_MAX = 2000;
+const logMin = Math.log10(HZ_MIN), logMax = Math.log10(HZ_MAX);
+
+function sliderToHz(s){ // s = 0..100
+  const t = s/100;
+  const val = Math.pow(10, logMin + (logMax - logMin)*t);
+  return Math.round(val);
+}
+function hzToSlider(hz){
+  const t = (Math.log10(hz) - logMin) / (logMax - logMin);
+  return Math.round(t*100);
+}
+
+/* ---- wire one control (call twice for A and B) ---- */
+function wireFreq(idBase, initialHz){
+  const s = document.getElementById(idBase);
+  const n = document.getElementById(idBase + "_num");
+  const r = document.getElementById(idBase + "_readout");
+  const incBtn = document.querySelector(`[data-inc="${idBase}"]`);
+  const decBtn = document.querySelector(`[data-dec="${idBase}"]`);
+
+  // restore from localStorage or use initial
+  const saved = +localStorage.getItem(idBase + "_hz");
+  const startHz = (saved && saved>=HZ_MIN && saved<=HZ_MAX) ? saved : initialHz;
+  s.value = hzToSlider(startHz);
+  n.value = startHz;
+  r.textContent = startHz + " Hz";
+
+  function setHz(hz){
+    hz = Math.max(HZ_MIN, Math.min(HZ_MAX, Math.round(hz)));
+    s.value = hzToSlider(hz);
+    n.value = hz;
+    r.textContent = hz + " Hz";
+    localStorage.setItem(idBase + "_hz", hz);
+    // >>> call into your synth here, e.g. setBaseFreq('A', hz)
+    if (window.setBaseFreq) window.setBaseFreq(idBase.endsWith('A') ? 'A' : 'B', hz);
+  }
+
+  s.addEventListener('input', () => setHz(sliderToHz(+s.value)));
+  n.addEventListener('input', () => setHz(+n.value || HZ_MIN));
+  incBtn.addEventListener('click', () => setHz(+n.value + 1));
+  decBtn.addEventListener('click', () => setHz(+n.value - 1));
+
+  // snap to common musically-useful lows on long‑press
+  const quicks = [40, 60, 80, 100, 160];
+  s.addEventListener('dblclick', () => {
+    const cur = +n.value, next = quicks.find(q => q>cur) || quicks[0];
+    setHz(next);
+  });
+
+  // expose current value to your engine at init
+  if (window.setBaseFreq) window.setBaseFreq(idBase.endsWith('A') ? 'A' : 'B', startHz);
+}
+
+/* ---- init both controls (set your preferred defaults) ---- */
+document.addEventListener('DOMContentLoaded', ()=>{
+  wireFreq('freqA', 80);   // Base A default
+  // if you have Base B, duplicate the HTML with ids freqB/freqB_num/freqB_readout
+  // wireFreq('freqB', 40);
+});
+</script>
